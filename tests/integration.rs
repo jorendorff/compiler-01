@@ -442,6 +442,144 @@ fn digit_followed_by_identifier() {
     expect_compile_error("print 3x;");
 }
 
+// ==================== Overflow edge cases ====================
+
+#[test]
+fn multiplication_overflow_wraps() {
+    // i64::MAX * 2 = (2^63 - 1) * 2 = 2^64 - 2, wraps to -2
+    assert_eq!(run_toy("print 9223372036854775807 * 2;"), "-2\n");
+}
+
+#[test]
+fn multiplication_overflow_to_zero() {
+    // A number times 2^k can overflow to 0
+    // 2^63 in two's complement is i64::MIN; i64::MIN * 2 = 0 (wraps)
+    let src = "\
+let x = 0 - 9223372036854775807 - 1;
+print x * 2;
+";
+    assert_eq!(run_toy(src), "0\n");
+}
+
+#[test]
+fn negation_of_min_wraps_to_min() {
+    // -i64::MIN overflows; wraps back to i64::MIN
+    let src = "\
+let x = 0 - 9223372036854775807 - 1;
+print -x;
+";
+    assert_eq!(run_toy(src), "-9223372036854775808\n");
+}
+
+#[test]
+fn division_min_by_neg1_wraps() {
+    // i64::MIN / -1 overflows; on ARM64 sdiv returns i64::MIN
+    let src = "\
+let x = 0 - 9223372036854775807 - 1;
+print x / -1;
+";
+    assert_eq!(run_toy(src), "-9223372036854775808\n");
+}
+
+#[test]
+fn modulo_min_by_neg1_is_zero() {
+    // i64::MIN % -1 = 0 (since MIN / -1 = MIN with wrapping,
+    // and MIN - MIN * -1 = MIN + MIN = 0 with wrapping)
+    let src = "\
+let x = 0 - 9223372036854775807 - 1;
+print x % -1;
+";
+    assert_eq!(run_toy(src), "0\n");
+}
+
+#[test]
+fn division_by_min_value() {
+    // 1 / i64::MIN = 0 (truncates toward zero)
+    let src = "\
+let x = 0 - 9223372036854775807 - 1;
+print 1 / x;
+";
+    assert_eq!(run_toy(src), "0\n");
+}
+
+#[test]
+fn modulo_by_min_value() {
+    // 1 % i64::MIN = 1 (since 1 / i64::MIN = 0, remainder is 1)
+    let src = "\
+let x = 0 - 9223372036854775807 - 1;
+print 1 % x;
+";
+    assert_eq!(run_toy(src), "1\n");
+}
+
+// ==================== gen_load_immediate boundary values ====================
+
+#[test]
+fn literal_boundary_65535() {
+    // Last value using single `mov` instruction
+    assert_eq!(run_toy("print 65535;"), "65535\n");
+}
+
+#[test]
+fn literal_boundary_65536() {
+    // First value requiring `movz` + `movk`
+    assert_eq!(run_toy("print 65536;"), "65536\n");
+}
+
+#[test]
+fn literal_only_chunk1() {
+    // 0x0001_0000 = 65536 — only chunk 1 is non-zero (besides chunk 0 = 0)
+    assert_eq!(run_toy("print 65536;"), "65536\n");
+}
+
+#[test]
+fn literal_only_chunk2() {
+    // 0x0001_0000_0000 = 4294967296
+    assert_eq!(run_toy("print 4294967296;"), "4294967296\n");
+}
+
+#[test]
+fn literal_only_chunk3() {
+    // 0x0001_0000_0000_0000 = 281474976710656
+    assert_eq!(run_toy("print 281474976710656;"), "281474976710656\n");
+}
+
+#[test]
+fn literal_chunks_with_gaps() {
+    // 0x0001_0001_0000_0000 = 281479271677952 — chunks 0,1 zero, chunks 2,3 non-zero
+    assert_eq!(run_toy("print 281479271677952;"), "281479271677952\n");
+}
+
+#[test]
+fn literal_all_chunks_nonzero() {
+    // i64::MAX = 0x7FFF_FFFF_FFFF_FFFF = 9223372036854775807
+    assert_eq!(run_toy("print 9223372036854775807;"), "9223372036854775807\n");
+}
+
+// ==================== Variable limit ====================
+
+#[test]
+fn max_variables_32() {
+    // Exactly 32 let statements should work
+    let mut src = String::new();
+    for i in 0..32 {
+        src.push_str(&format!("let v{i} = {i};\n"));
+    }
+    src.push_str("print v0 + v31;\n");
+    assert_eq!(run_toy(&src), "31\n");
+}
+
+#[test]
+fn too_many_variables_33() {
+    // 33 let statements should be a compile error
+    let mut src = String::new();
+    for i in 0..33 {
+        src.push_str(&format!("let v{i} = {i};\n"));
+    }
+    src.push_str("print v0;\n");
+    expect_compile_error(&src);
+}
+
 // ==================== Error cases ====================
 
 #[test]
@@ -462,4 +600,15 @@ fn error_missing_semicolon() {
 #[test]
 fn error_unexpected_token() {
     expect_compile_error("42;");
+}
+
+#[test]
+fn error_literal_out_of_range() {
+    // 9223372036854775808 = i64::MAX + 1, cannot be parsed
+    expect_compile_error("print 9223372036854775808;");
+}
+
+#[test]
+fn error_literal_way_out_of_range() {
+    expect_compile_error("print 99999999999999999999;");
 }

@@ -219,14 +219,24 @@ All arithmetic operates on signed 64-bit integers (range: −2^63 to 2^63 − 1)
   around (two's complement). For example,
   `9223372036854775807 + 1 = -9223372036854775808`.
 
+- **Negation:** Unary minus wraps on overflow. The only overflowing case is
+  negating the minimum value: if `x` is −2^63, then `-x` wraps back to −2^63.
+
 - **Division (`/`):** Truncates toward zero.
   `7 / 2 = 3`, `-7 / 2 = -3`.
+  The one overflowing case, −2^63 / −1, wraps: the result is −2^63.
 
 - **Modulo (`%`):** The result has the same sign as the dividend (left operand).
   `7 % 3 = 1`, `-7 % 3 = -1`.
 
 - **Division or modulo by zero:** The program crashes (the ARM64 `sdiv`
   instruction triggers a hardware trap).
+
+### Limits
+
+A program may contain at most 32 `let` statements (including shadowing
+re-declarations). This is a compile-time limit; the compiler reports an error
+if it is exceeded.
 
 ### Error handling
 
@@ -236,3 +246,4 @@ The compiler reports errors and exits with a nonzero status for:
 - Syntax errors (malformed statements or expressions)
 - Undefined variables (use before `let`, or assignment to undeclared variable)
 - Integer literals out of range
+- Too many variables (more than 32 `let` statements)

@@ -36,8 +36,20 @@ impl Codegen {
         count
     }
 
+    /// Maximum number of `let` statements (including shadowing re-declarations).
+    /// Limited by the ARM64 unscaled immediate offset range for `stur`/`ldur`
+    /// (offsets -8 to -256 from x29, giving 32 slots of 8 bytes each).
+    const MAX_VARIABLES: usize = 32;
+
     pub fn generate(mut self, stmts: &[Stmt]) -> Result<String, String> {
         self.var_count = Self::count_variables(stmts);
+        if self.var_count > Self::MAX_VARIABLES {
+            return Err(format!(
+                "too many variables: {} declared, maximum is {}",
+                self.var_count,
+                Self::MAX_VARIABLES
+            ));
+        }
 
         // Calculate stack frame size:
         // - 16 bytes for saved x29 (frame pointer) and x30 (link register)
