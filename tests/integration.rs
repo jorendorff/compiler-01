@@ -580,6 +580,36 @@ fn too_many_variables_33() {
     expect_compile_error(&src);
 }
 
+// ==================== Expression nesting limit ====================
+
+#[test]
+fn deeply_nested_parentheses_at_limit() {
+    // 256 levels of parentheses should work
+    let src = format!("print {}1{};", "(".repeat(256), ")".repeat(256));
+    assert_eq!(run_toy(&src), "1\n");
+}
+
+#[test]
+fn deeply_nested_parentheses_over_limit() {
+    // 257 levels of parentheses should be a compile error
+    let src = format!("print {}1{};", "(".repeat(257), ")".repeat(257));
+    expect_compile_error(&src);
+}
+
+#[test]
+fn deeply_chained_unary_minus_at_limit() {
+    // 256 unary minuses should work (even number, so result is positive)
+    let src = format!("print {}5;", "-".repeat(256));
+    assert_eq!(run_toy(&src), "5\n");
+}
+
+#[test]
+fn deeply_chained_unary_minus_over_limit() {
+    // 257 unary minuses should be a compile error
+    let src = format!("print {}5;", "-".repeat(257));
+    expect_compile_error(&src);
+}
+
 // ==================== Error cases ====================
 
 #[test]

@@ -234,9 +234,14 @@ All arithmetic operates on signed 64-bit integers (range: −2^63 to 2^63 − 1)
 
 ### Limits
 
-A program may contain at most 32 `let` statements (including shadowing
-re-declarations). This is a compile-time limit; the compiler reports an error
-if it is exceeded.
+- A program may contain at most 32 `let` statements (including shadowing
+  re-declarations).
+
+- Expressions may be nested to a depth of at most 256 (counting parenthesized
+  sub-expressions and chained unary minus operators).
+
+Both are compile-time limits; the compiler reports an error if either is
+exceeded.
 
 ### Error handling
 
@@ -247,3 +252,4 @@ The compiler reports errors and exits with a nonzero status for:
 - Undefined variables (use before `let`, or assignment to undeclared variable)
 - Integer literals out of range
 - Too many variables (more than 32 `let` statements)
+- Expression nesting too deep (more than 256 levels)

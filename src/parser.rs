@@ -4,11 +4,18 @@ use crate::lexer::{SpannedToken, Token};
 pub struct Parser {
     tokens: Vec<SpannedToken>,
     pos: usize,
+    /// Current expression nesting depth (parentheses and unary operators).
+    depth: usize,
 }
+
+/// Maximum expression nesting depth. Prevents stack overflow in the
+/// recursive descent parser on pathological inputs like deeply nested
+/// parentheses or long chains of unary minus.
+const MAX_DEPTH: usize = 256;
 
 impl Parser {
     pub fn new(tokens: Vec<SpannedToken>) -> Self {
-        Parser { tokens, pos: 0 }
+        Parser { tokens, pos: 0, depth: 0 }
     }
 
     fn peek(&self) -> &Token {
@@ -152,8 +159,17 @@ impl Parser {
 
     fn parse_unary(&mut self) -> Result<Expr, String> {
         if *self.peek() == Token::Minus {
+            let (line, col) = self.current_span();
+            self.depth += 1;
+            if self.depth > MAX_DEPTH {
+                return Err(format!(
+                    "{}:{}: expression is too deeply nested (limit is {})",
+                    line, col, MAX_DEPTH
+                ));
+            }
             self.advance();
             let expr = self.parse_unary()?;
+            self.depth -= 1;
             Ok(Expr::UnaryMinus(Box::new(expr)))
         } else {
             self.parse_atom()
@@ -177,9 +193,17 @@ impl Parser {
                 Ok(Expr::Var(name))
             }
             Token::LParen => {
+                self.depth += 1;
+                if self.depth > MAX_DEPTH {
+                    return Err(format!(
+                        "{}:{}: expression is too deeply nested (limit is {})",
+                        line, col, MAX_DEPTH
+                    ));
+                }
                 self.advance();
                 let expr = self.parse_expr()?;
                 self.expect(&Token::RParen)?;
+                self.depth -= 1;
                 Ok(expr)
             }
             _ => Err(format!(
