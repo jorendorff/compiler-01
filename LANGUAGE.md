@@ -47,6 +47,36 @@ All values are signed 64-bit integers.
 
 ### Lexical structure
 
+The lexer uses **maximal munch**: at each point, it consumes the longest
+possible token. Whitespace and comments separate tokens but are not themselves
+tokens.
+
+This has practical consequences:
+
+- Symbols (`+`, `-`, `*`, etc.) always act as token boundaries. No whitespace
+  is needed around them. `3+4` is three tokens: `3`, `+`, `4`.
+
+- Keywords and identifiers are both "words" (sequences of letters, digits, and
+  underscores). A keyword is only recognized when the full word matches. If
+  extra alphanumeric characters are attached, the whole run is lexed as an
+  identifier:
+
+  - `print 3;` — keyword `print`, integer `3`, semicolon. OK.
+  - `print(3);` — keyword `print`, `(`, `3`, `)`, `;`. OK (the `(` terminates
+    the keyword).
+  - `print3;` — identifier `print3`, `;`. Not a print statement. This is a
+    syntax error (identifiers can only begin a statement if followed by `=`).
+  - `let x=1;` — keyword `let`, identifier `x`, `=`, `1`, `;`. OK.
+  - `letx=1;` — identifier `letx`, `=`, `1`, `;`. Not a let statement; this
+    is an assignment to a variable called `letx`.
+
+- Integer literals cannot be immediately followed by letters. However, the
+  current lexer does not enforce this; `3x` is lexed as integer `3` followed
+  by identifier `x`. This is a consequence of maximal munch (digits stop at
+  the first non-digit, then a new identifier token begins). Whether this
+  produces a valid program depends on context; in most cases it is a syntax
+  error.
+
 **Whitespace:** Spaces, tabs, and newlines are insignificant (they separate
 tokens but are otherwise ignored).
 

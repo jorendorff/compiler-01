@@ -366,6 +366,82 @@ fn empty_program() {
     assert_eq!(run_toy(""), "");
 }
 
+// ==================== Tokenization / whitespace tests ====================
+
+#[test]
+fn no_spaces_around_operators() {
+    assert_eq!(run_toy("print 3+4;"), "7\n");
+}
+
+#[test]
+fn no_spaces_around_multiple_operators() {
+    assert_eq!(run_toy("print 2+3*4;"), "14\n");
+}
+
+#[test]
+fn no_spaces_in_variable_assignment() {
+    assert_eq!(run_toy("let x=10;\nprint x;"), "10\n");
+}
+
+#[test]
+fn no_space_between_print_and_paren() {
+    // print(3) — the ( terminates the keyword, so this is valid
+    assert_eq!(run_toy("print(3);"), "3\n");
+}
+
+#[test]
+fn no_space_in_parenthesized_expression() {
+    assert_eq!(run_toy("print(2+3)*4;"), "20\n");
+}
+
+#[test]
+fn print_keyword_glued_to_digit_is_error() {
+    // print3 is lexed as identifier "print3", not keyword "print" + literal 3.
+    // As a statement, an identifier must be followed by =, so this is a syntax error.
+    expect_compile_error("print3;");
+}
+
+#[test]
+fn let_keyword_glued_to_name_is_assignment() {
+    // letx=1; is lexed as identifier "letx", =, 1, ;
+    // This is an assignment to "letx", which hasn't been declared.
+    expect_compile_error("letx=1;");
+}
+
+#[test]
+fn let_keyword_glued_to_name_with_prior_decl() {
+    // If "letx" was previously declared, "letx=2;" is a valid assignment.
+    assert_eq!(run_toy("let letx = 1;\nletx=2;\nprint letx;"), "2\n");
+}
+
+#[test]
+fn keywords_as_prefix_of_identifier() {
+    // "printing" and "letter" are valid identifiers, not keywords
+    assert_eq!(
+        run_toy("let printing = 5;\nlet letter = 10;\nprint printing + letter;"),
+        "15\n"
+    );
+}
+
+#[test]
+fn all_whitespace_between_tokens() {
+    // Tabs and multiple spaces work
+    assert_eq!(run_toy("print\t\t3\t+\t4\t;"), "7\n");
+}
+
+#[test]
+fn no_whitespace_program() {
+    // Minimal whitespace: only required between "let" and identifier
+    assert_eq!(run_toy("let x=1;print(x+2);"), "3\n");
+}
+
+#[test]
+fn digit_followed_by_identifier() {
+    // "3x" lexes as integer 3, identifier x — this is a syntax error
+    // because after "print 3", the parser expects an operator or semicolon
+    expect_compile_error("print 3x;");
+}
+
 // ==================== Error cases ====================
 
 #[test]
